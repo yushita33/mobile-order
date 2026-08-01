@@ -6,7 +6,7 @@ export default defineNuxtConfig({
 	modules: ['@pinia/nuxt', 'nuxt-vuefire', '@nuxt/eslint'],
 
 	ssr: false,
-	devtools: { enabled: true },
+	devtools: { enabled: false },
 
 	css: ['~/assets/css/main.css'],
 	compatibilityDate: '2025-07-15',
