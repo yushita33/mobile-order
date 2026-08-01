@@ -165,7 +165,7 @@
 			</div>
 		</div>
 
-		<MenuFormModal
+		<AdminMenuFormModal
 			v-if="showModal"
 			:menu="editingMenu"
 			:groups="groups"
