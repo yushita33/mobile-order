@@ -9,7 +9,10 @@
     "preview": "nuxt preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "deploy": "npm run generate && firebase deploy",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:hosting": "npm run generate && firebase deploy --only hosting"
   },
   "dependencies": {
     "@pinia/nuxt": "^1.0.1",
