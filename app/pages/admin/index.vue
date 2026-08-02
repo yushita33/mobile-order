@@ -1,12 +1,12 @@
 <template>
 	<div>
-		<div class="flex items-center justify-between mb-6">
+		<div class="flex flex-wrap items-center justify-between gap-2 mb-6">
 			<h1 class="text-xl font-bold text-gray-800">
 				店舗一覧
 			</h1>
 			<NuxtLink
 				to="/admin/shops/new"
-				class="bg-blue-600 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-blue-700 transition"
+				class="bg-blue-600 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-blue-700 transition whitespace-nowrap"
 			>
 				店舗を登録
 			</NuxtLink>

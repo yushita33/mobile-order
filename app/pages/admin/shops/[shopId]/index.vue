@@ -1,19 +1,19 @@
 <template>
 	<div>
-		<div class="flex items-center justify-between mb-6">
-			<div>
-				<h1 class="text-xl font-bold text-gray-800">
+		<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+			<div class="min-w-0">
+				<h1 class="text-xl font-bold text-gray-800 break-words">
 					{{ shop?.name }}
 				</h1>
-				<p class="text-sm text-gray-500">
+				<p class="text-sm text-gray-500 break-all">
 					注文URL: /order/{{ shop?.publicId }}
 				</p>
 			</div>
-			<div class="flex gap-2">
+			<div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hidden">
 				<button
 					v-for="opt in statusFilterOptions"
 					:key="opt.value"
-					class="text-xs font-medium rounded-full px-3 py-1.5 border transition"
+					class="text-xs font-medium rounded-full px-3 py-1.5 border transition whitespace-nowrap flex-shrink-0"
 					:class="
 						filterStatus === opt.value
 							? 'bg-blue-600 text-white border-blue-600'
@@ -75,28 +75,28 @@
 					</li>
 				</ul>
 
-				<div class="flex items-center justify-between border-t border-gray-100 pt-3">
+				<div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
 					<span class="text-xs text-gray-400">
 						{{ formatDateTime(order.createdAt) }}
 					</span>
-					<div class="flex gap-2">
+					<div class="flex flex-wrap gap-2">
 						<button
 							v-if="order.status === ORDER_STATUS.RECEIVED"
-							class="text-xs bg-amber-500 text-white rounded px-2.5 py-1 hover:bg-amber-600 transition"
+							class="text-xs bg-amber-500 text-white rounded px-2.5 py-1 hover:bg-amber-600 transition whitespace-nowrap"
 							@click="changeStatus(order.id, ORDER_STATUS.COOKING)"
 						>
 							調理開始
 						</button>
 						<button
 							v-if="order.status === ORDER_STATUS.COOKING"
-							class="text-xs bg-green-600 text-white rounded px-2.5 py-1 hover:bg-green-700 transition"
+							class="text-xs bg-green-600 text-white rounded px-2.5 py-1 hover:bg-green-700 transition whitespace-nowrap"
 							@click="changeStatus(order.id, ORDER_STATUS.COMPLETED)"
 						>
 							提供済み
 						</button>
 						<button
 							v-if="order.status === ORDER_STATUS.RECEIVED"
-							class="text-xs bg-gray-400 text-white rounded px-2.5 py-1 hover:bg-gray-500 transition"
+							class="text-xs bg-gray-400 text-white rounded px-2.5 py-1 hover:bg-gray-500 transition whitespace-nowrap"
 							@click="changeStatus(order.id, ORDER_STATUS.CANCELLED)"
 						>
 							キャンセル
