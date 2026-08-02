@@ -10,6 +10,7 @@ export const useCartStore = defineStore('cart', () => {
 	const items = ref<CartItem[]>([])
 	const lastOrderId = ref<string | null>(null)
 	const lastOrderNo = ref<number | null>(null)
+	const lastOrderItems = ref<CartItem[]>([])
 
 	function load() {
 		if (typeof localStorage === 'undefined') return
@@ -21,6 +22,7 @@ export const useCartStore = defineStore('cart', () => {
 			items.value = data.items ?? []
 			lastOrderId.value = data.lastOrderId ?? null
 			lastOrderNo.value = data.lastOrderNo ?? null
+			lastOrderItems.value = data.lastOrderItems ?? []
 		}
 		catch {
 			clear()
@@ -36,6 +38,7 @@ export const useCartStore = defineStore('cart', () => {
 				items: items.value,
 				lastOrderId: lastOrderId.value,
 				lastOrderNo: lastOrderNo.value,
+				lastOrderItems: lastOrderItems.value,
 			}),
 		)
 	}
@@ -46,6 +49,7 @@ export const useCartStore = defineStore('cart', () => {
 			items.value = []
 			lastOrderId.value = null
 			lastOrderNo.value = null
+			lastOrderItems.value = []
 		}
 	}
 
@@ -77,14 +81,16 @@ export const useCartStore = defineStore('cart', () => {
 		items.value = []
 		lastOrderId.value = null
 		lastOrderNo.value = null
+		lastOrderItems.value = []
 		if (typeof localStorage !== 'undefined') {
 			localStorage.removeItem(STORAGE_KEY)
 		}
 	}
 
-	function completeOrder(orderId: string, orderNo: number) {
+	function completeOrder(orderId: string, orderNo: number, items: CartItem[]) {
 		lastOrderId.value = orderId
 		lastOrderNo.value = orderNo
+		lastOrderItems.value = [...items]
 		items.value = []
 		save()
 	}
@@ -99,6 +105,7 @@ export const useCartStore = defineStore('cart', () => {
 		items,
 		lastOrderId,
 		lastOrderNo,
+		lastOrderItems,
 		count,
 		total,
 		load,

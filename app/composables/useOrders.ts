@@ -20,14 +20,11 @@ export function useOrders() {
 		shopId: string,
 		items: OrderItem[],
 	): Promise<{ orderId: string, orderNo: number }> {
-		const shopRef = doc(db, 'shops', shopId)
 		const orderRef = doc(collection(db, 'shops', shopId, 'orders'))
+		const counterRef = doc(db, 'shops', shopId, 'counters', 'orders')
 		const result = await runTransaction(db, async (tx) => {
-			const shopSnap = await tx.get(shopRef)
-			if (!shopSnap.exists()) {
-				throw new Error('店舗が見つかりません')
-			}
-			const orderNo = (shopSnap.data().lastOrderNo ?? 0) + 1
+			const counterSnap = await tx.get(counterRef)
+			const orderNo = (counterSnap.exists() ? counterSnap.data().lastOrderNo : 0) + 1
 			tx.set(orderRef, {
 				tableId: DEFAULT_TABLE_ID,
 				orderNo,
@@ -36,7 +33,7 @@ export function useOrders() {
 				createdAt: serverTimestamp(),
 				updatedAt: serverTimestamp(),
 			})
-			tx.update(shopRef, {
+			tx.set(counterRef, {
 				lastOrderNo: orderNo,
 				updatedAt: serverTimestamp(),
 			})
