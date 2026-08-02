@@ -87,10 +87,10 @@ export const useCartStore = defineStore('cart', () => {
 		}
 	}
 
-	function completeOrder(orderId: string, orderNo: number, items: CartItem[]) {
+	function completeOrder(orderId: string, orderNo: number, orderedItems: CartItem[]) {
 		lastOrderId.value = orderId
 		lastOrderNo.value = orderNo
-		lastOrderItems.value = [...items]
+		lastOrderItems.value = [...orderedItems]
 		items.value = []
 		save()
 	}
