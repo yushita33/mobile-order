@@ -182,7 +182,9 @@ const { subscribeOrders, updateOrderStatus } = useOrders()
 const shop = ref<Shop | null>(null)
 const orders = ref<Order[]>([])
 
-const filterStatus = ref<OrderStatus | 'all'>('all')
+type FilterStatus = OrderStatus | 'all' | 'active'
+
+const filterStatus = ref<FilterStatus>('active')
 const error = ref('')
 const cancelTarget = ref<Order | null>(null)
 const cancelReason = ref('')
@@ -194,16 +196,27 @@ const cancelModalTitle = computed(() => {
 		: 'この注文をキャンセルします。よろしいですか？'
 })
 
-const statusFilterOptions: { value: OrderStatus | 'all', label: string }[] = [
-	{ value: 'all', label: 'すべて' },
-	{ value: ORDER_STATUS.RECEIVED, label: ORDER_STATUS_LABELS[ORDER_STATUS.RECEIVED] },
-	{ value: ORDER_STATUS.COOKING, label: ORDER_STATUS_LABELS[ORDER_STATUS.COOKING] },
+const activeOrders = computed(() => orders.value.filter(o =>
+	o.status === ORDER_STATUS.RECEIVED || o.status === ORDER_STATUS.COOKING,
+))
+
+const statusFilterOptions = computed<{ value: FilterStatus, label: string }[]>(() => [
+	{ value: 'active', label: `対応中（${activeOrders.value.length}）` },
 	{ value: ORDER_STATUS.COMPLETED, label: ORDER_STATUS_LABELS[ORDER_STATUS.COMPLETED] },
+	{ value: 'all', label: 'すべて' },
 	{ value: ORDER_STATUS.CANCELLED, label: ORDER_STATUS_LABELS[ORDER_STATUS.CANCELLED] },
-]
+])
 
 const filteredOrders = computed(() => {
 	if (filterStatus.value === 'all') return orders.value
+	if (filterStatus.value === 'active') {
+		const rank = { [ORDER_STATUS.COOKING]: 0, [ORDER_STATUS.RECEIVED]: 1 }
+		return [...activeOrders.value].sort((a, b) => {
+			const rankDiff = rank[a.status]! - rank[b.status]!
+			if (rankDiff !== 0) return rankDiff
+			return (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0)
+		})
+	}
 	return orders.value.filter(o => o.status === filterStatus.value)
 })
 
@@ -222,13 +235,13 @@ onMounted(async () => {
 function statusBadgeClass(status: OrderStatus) {
 	switch (status) {
 		case ORDER_STATUS.RECEIVED:
-			return 'bg-blue-50 text-blue-700'
+			return 'bg-gray-100 text-gray-600'
 		case ORDER_STATUS.COOKING:
-			return 'bg-amber-50 text-amber-700'
+			return 'bg-orange-50 text-orange-700'
 		case ORDER_STATUS.COMPLETED:
 			return 'bg-green-50 text-green-700'
 		case ORDER_STATUS.CANCELLED:
-			return 'bg-gray-100 text-gray-500'
+			return 'bg-gray-100 text-gray-400'
 	}
 }
 
