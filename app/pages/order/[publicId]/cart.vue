@@ -35,12 +35,12 @@
 				:key="item.menuId"
 				class="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
 			>
-				<div class="flex items-center justify-between mb-2">
-					<p class="font-medium text-gray-800 text-sm">
+				<div class="flex items-center justify-between gap-2 mb-2">
+					<p class="font-medium text-gray-800 text-sm break-words min-w-0">
 						{{ item.name }}
 					</p>
 					<button
-						class="text-gray-400 hover:text-red-600 text-sm"
+						class="text-gray-400 hover:text-red-600 text-sm flex-shrink-0"
 						@click="cart.removeItem(item.menuId)"
 					>
 						×

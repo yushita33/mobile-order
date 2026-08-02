@@ -20,20 +20,20 @@
 				<li
 					v-for="group in groups"
 					:key="group.id"
-					class="flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2"
+					class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-gray-200 rounded-lg px-3 py-2"
 				>
-					<div class="flex items-center gap-3">
+					<div class="flex items-center gap-3 min-w-0 flex-1">
 						<input
 							v-model="group.name"
-							class="text-sm border border-transparent focus:border-gray-300 focus:outline-none rounded px-1 py-0.5"
+							class="text-sm border border-transparent focus:border-gray-300 focus:outline-none rounded px-1 py-0.5 min-w-0 flex-1"
 							@change="saveGroup(group)"
 						>
-						<span class="text-xs text-gray-400">
+						<span class="text-xs text-gray-400 whitespace-nowrap">
 							表示順: {{ group.sortOrder }}
 						</span>
 					</div>
 					<button
-						class="text-xs text-red-600 hover:text-red-800"
+						class="text-xs text-red-600 hover:text-red-800 whitespace-nowrap"
 						@click="removeGroup(group)"
 					>
 						削除
@@ -53,7 +53,7 @@
 				>
 				<button
 					type="submit"
-					class="bg-blue-600 text-white text-sm rounded-lg px-4 py-2 hover:bg-blue-700 transition disabled:opacity-50"
+					class="bg-blue-600 text-white text-sm rounded-lg px-4 py-2 hover:bg-blue-700 transition disabled:opacity-50 whitespace-nowrap flex-shrink-0"
 					:disabled="!newGroupName.trim()"
 				>
 					追加
@@ -61,12 +61,12 @@
 			</form>
 		</div>
 
-		<div class="flex items-center justify-between mb-4">
+		<div class="flex flex-wrap items-center justify-between gap-2 mb-4">
 			<h2 class="font-bold text-gray-800">
 				メニュー一覧
 			</h2>
 			<button
-				class="bg-blue-600 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-blue-700 transition"
+				class="bg-blue-600 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-blue-700 transition whitespace-nowrap"
 				@click="openModal(null)"
 			>
 				+ メニューを追加
@@ -125,9 +125,9 @@
 						</div>
 					</div>
 
-					<div class="flex items-center justify-between mt-3 border-t border-gray-100 pt-3">
-						<div class="flex gap-3 text-xs">
-							<label class="flex items-center gap-1 text-gray-600 cursor-pointer">
+					<div class="flex flex-wrap items-center justify-between gap-2 mt-3 border-t border-gray-100 pt-3">
+						<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+							<label class="flex items-center gap-1 text-gray-600 cursor-pointer whitespace-nowrap">
 								<input
 									type="checkbox"
 									:checked="menu.isVisible"
@@ -136,7 +136,7 @@
 								>
 								表示
 							</label>
-							<label class="flex items-center gap-1 text-gray-600 cursor-pointer">
+							<label class="flex items-center gap-1 text-gray-600 cursor-pointer whitespace-nowrap">
 								<input
 									type="checkbox"
 									:checked="menu.soldOut"
@@ -148,13 +148,13 @@
 						</div>
 						<div class="flex gap-2">
 							<button
-								class="text-xs text-blue-600 hover:text-blue-800"
+								class="text-xs text-blue-600 hover:text-blue-800 whitespace-nowrap"
 								@click="openModal(menu)"
 							>
 								編集
 							</button>
 							<button
-								class="text-xs text-red-600 hover:text-red-800"
+								class="text-xs text-red-600 hover:text-red-800 whitespace-nowrap"
 								@click="removeMenu(menu)"
 							>
 								削除

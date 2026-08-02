@@ -73,15 +73,15 @@
 							v-if="menu.imageUrl"
 							:src="menu.imageUrl + (menu.imageUpdatedAt ? `?v=${menu.imageUpdatedAt}` : '')"
 							:alt="menu.name"
-							class="w-20 h-20 object-cover rounded-lg"
+							class="w-20 h-20 object-cover rounded-lg flex-shrink-0"
 						>
 						<div
 							v-else
-							class="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs"
+							class="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs flex-shrink-0"
 						>
 							画像なし
 						</div>
-						<div class="flex-1">
+						<div class="flex-1 min-w-0">
 							<p class="font-medium text-gray-800">
 								{{ menu.name }}
 							</p>
