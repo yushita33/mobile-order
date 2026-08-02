@@ -75,6 +75,13 @@
 					</li>
 				</ul>
 
+				<p
+					v-if="order.status === ORDER_STATUS.CANCELLED"
+					class="text-xs text-gray-400 mb-3"
+				>
+					理由: {{ order.cancelReason ? (CANCEL_REASON_LABELS[order.cancelReason] ?? order.cancelReason) : '未選択' }}
+				</p>
+
 				<div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
 					<span class="text-xs text-gray-400">
 						{{ formatDateTime(order.createdAt) }}
@@ -95,13 +102,57 @@
 							提供済み
 						</button>
 						<button
-							v-if="order.status === ORDER_STATUS.RECEIVED"
+							v-if="order.status !== ORDER_STATUS.CANCELLED"
 							class="text-xs bg-gray-400 text-white rounded px-2.5 py-1 hover:bg-gray-500 transition whitespace-nowrap"
-							@click="changeStatus(order.id, ORDER_STATUS.CANCELLED)"
+							@click="openCancelModal(order)"
 						>
 							キャンセル
 						</button>
 					</div>
+				</div>
+			</div>
+		</div>
+
+		<div
+			v-if="cancelTarget"
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+			@click.self="closeCancelModal"
+		>
+			<div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
+				<h2 class="text-lg font-bold text-gray-800 mb-1">
+					{{ cancelModalTitle }}
+				</h2>
+				<p class="text-sm text-gray-500 mb-4">
+					キャンセル理由を選択してください（任意）
+				</p>
+				<select
+					v-model="cancelReason"
+					class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 mb-6"
+				>
+					<option value="">
+						未選択
+					</option>
+					<option
+						v-for="(label, value) in CANCEL_REASON_LABELS"
+						:key="value"
+						:value="value"
+					>
+						{{ label }}
+					</option>
+				</select>
+				<div class="flex gap-2 justify-end">
+					<button
+						class="text-sm text-gray-600 border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50 transition"
+						@click="closeCancelModal"
+					>
+						戻る
+					</button>
+					<button
+						class="text-sm bg-red-600 text-white rounded-lg px-4 py-2 hover:bg-red-700 transition"
+						@click="confirmCancel"
+					>
+						キャンセルを実行
+					</button>
 				</div>
 			</div>
 		</div>
@@ -113,6 +164,7 @@ import type { Order, OrderStatus, Shop } from '~/types'
 import {
 	OrderStatus as ORDER_STATUS,
 	ORDER_STATUS_LABELS,
+	CANCEL_REASON_LABELS,
 } from '~/types'
 import { formatPrice, formatDateTime } from '~/utils/format'
 
@@ -132,6 +184,15 @@ const orders = ref<Order[]>([])
 
 const filterStatus = ref<OrderStatus | 'all'>('all')
 const error = ref('')
+const cancelTarget = ref<Order | null>(null)
+const cancelReason = ref('')
+
+const cancelModalTitle = computed(() => {
+	if (!cancelTarget.value) return ''
+	return cancelTarget.value.status === ORDER_STATUS.COMPLETED
+		? '提供済みの注文を取り消します。内容をご確認のうえ実行してください。'
+		: 'この注文をキャンセルします。よろしいですか？'
+})
 
 const statusFilterOptions: { value: OrderStatus | 'all', label: string }[] = [
 	{ value: 'all', label: 'すべて' },
@@ -171,12 +232,31 @@ function statusBadgeClass(status: OrderStatus) {
 	}
 }
 
-async function changeStatus(orderId: string, status: OrderStatus) {
+async function changeStatus(orderId: string, status: OrderStatus, cancelReasonValue?: string): Promise<boolean> {
 	try {
-		await updateOrderStatus(shopId, orderId, status)
+		await updateOrderStatus(shopId, orderId, status, cancelReasonValue)
+		return true
 	}
 	catch (e) {
 		error.value = e instanceof Error ? e.message : 'ステータス更新に失敗しました'
+		return false
 	}
+}
+
+function openCancelModal(order: Order) {
+	cancelTarget.value = order
+	cancelReason.value = ''
+}
+
+function closeCancelModal() {
+	cancelTarget.value = null
+	cancelReason.value = ''
+}
+
+async function confirmCancel() {
+	if (!cancelTarget.value) return
+	const target = cancelTarget.value
+	const ok = await changeStatus(target.id, ORDER_STATUS.CANCELLED, cancelReason.value || undefined)
+	if (ok) closeCancelModal()
 }
 </script>
