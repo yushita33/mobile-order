@@ -15,6 +15,14 @@
 				{{ error }}
 			</p>
 
+			<p
+				v-if="isInAppBrowser"
+				class="mb-4 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded p-3"
+			>
+				LINEなどのアプリ内ブラウザではGoogleログインが正常に動作しない場合があります。
+				メニューから「ブラウザで開く」を選択して再度お試しください。
+			</p>
+
 			<button
 				class="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
 				:disabled="loading"
@@ -54,6 +62,19 @@ const { ensureUserProfile } = useUserProfile()
 
 const loading = ref(false)
 const error = ref('')
+
+const isInAppBrowser = computed(() => detectInAppBrowser())
+
+function detectInAppBrowser(): boolean {
+	if (typeof navigator === 'undefined') return false
+	const ua = navigator.userAgent.toLowerCase()
+	const appMarkers = ['line/', 'instagram', 'fbav', 'fban', 'twitter', 'tiktok', 'kakaotalk']
+	if (appMarkers.some(m => ua.includes(m))) return true
+	if (ua.includes('wv')) return true
+	const isIos = /iphone|ipad|ipod/.test(ua)
+	const isNormalBrowser = /safari|crios|fxios|edgios|opios/.test(ua)
+	return isIos && !isNormalBrowser
+}
 
 async function handleLogin() {
 	loading.value = true
