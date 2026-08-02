@@ -61,9 +61,11 @@ export function useOrders() {
 		shopId: string,
 		orderId: string,
 		status: OrderStatus,
+		cancelReason?: string,
 	) {
 		await updateDoc(doc(db, 'shops', shopId, 'orders', orderId), {
 			status,
+			...(cancelReason ? { cancelReason } : {}),
 			updatedAt: serverTimestamp(),
 		})
 	}

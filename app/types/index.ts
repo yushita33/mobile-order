@@ -16,6 +16,24 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 	[OrderStatus.CANCELLED]: 'キャンセル',
 }
 
+export const CancelReason = {
+	ORDER_MISTAKE: 'order_mistake',
+	SOLD_OUT: 'sold_out',
+	COOKING_MISTAKE: 'cooking_mistake',
+	CUSTOMER_REQUEST: 'customer_request',
+	OTHER: 'other',
+} as const
+
+export type CancelReason = (typeof CancelReason)[keyof typeof CancelReason]
+
+export const CANCEL_REASON_LABELS: Record<CancelReason, string> = {
+	[CancelReason.ORDER_MISTAKE]: '注文ミス',
+	[CancelReason.SOLD_OUT]: '在庫切れ',
+	[CancelReason.COOKING_MISTAKE]: '調理ミス',
+	[CancelReason.CUSTOMER_REQUEST]: '客都合',
+	[CancelReason.OTHER]: 'その他',
+}
+
 export const DEFAULT_TABLE_ID = 't1'
 
 export interface UserProfile {
@@ -79,6 +97,7 @@ export interface Order {
 	orderNo: number
 	status: OrderStatus
 	items: OrderItem[]
+	cancelReason?: string
 	createdAt: Timestamp
 	updatedAt?: Timestamp
 }
