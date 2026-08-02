@@ -140,9 +140,47 @@
 			</form>
 		</div>
 	</div>
+
+	<div
+		v-if="cropStage"
+		class="fixed inset-0 z-[60] flex flex-col bg-black"
+	>
+		<div class="flex items-center justify-between px-4 py-3 text-white shrink-0">
+			<button
+				type="button"
+				class="text-sm"
+				@click="cancelCrop"
+			>
+				キャンセル
+			</button>
+			<span class="text-sm">画像の位置を調整</span>
+			<button
+				type="button"
+				class="text-sm font-bold text-blue-400 disabled:opacity-50"
+				:disabled="processing"
+				@click="confirmCrop"
+			>
+				{{ processing ? '処理中...' : '確定' }}
+			</button>
+		</div>
+		<div class="flex-1 min-h-0">
+			<img
+				ref="cropImg"
+				:src="cropPreviewUrl"
+				alt="トリミング対象"
+				class="w-full h-full object-contain"
+			>
+		</div>
+		<div class="shrink-0 py-2 text-center text-xs text-white/60">
+			ドラッグで位置調整 / 拡大縮小できます
+		</div>
+	</div>
 </template>
 
 <script setup lang="ts">
+import Cropper from 'cropperjs'
+import 'cropperjs/dist/cropper.css'
+import { IMAGE_MAX_SIZE } from '~/composables/useMenuImage'
 import type { Menu, MenuGroup } from '~/types'
 
 const props = defineProps<{
@@ -157,7 +195,9 @@ const emit = defineEmits<{
 }>()
 
 const { addMenu, updateMenu } = useMenus()
-const { uploadMenuImage, deleteMenuImage } = useMenuImage()
+const { uploadMenuImage, deleteMenuImage, processMenuImage } = useMenuImage()
+
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
 const isEdit = computed(() => props.menu !== null)
 
@@ -171,10 +211,26 @@ const form = reactive({
 	soldOut: false,
 })
 
-const selectedFile = ref<File | null>(null)
+const processedBlob = ref<Blob | null>(null)
 const previewImageUrl = ref('')
 const loading = ref(false)
 const error = ref('')
+
+const cropStage = ref(false)
+const processing = ref(false)
+const cropPreviewUrl = ref('')
+const cropImg = ref<HTMLImageElement | null>(null)
+let cropper: Cropper | null = null
+
+onBeforeUnmount(() => {
+	destroyCropper()
+	if (cropPreviewUrl.value) {
+		URL.revokeObjectURL(cropPreviewUrl.value)
+	}
+	if (previewImageUrl.value.startsWith('blob:')) {
+		URL.revokeObjectURL(previewImageUrl.value)
+	}
+})
 
 onMounted(() => {
 	if (props.menu) {
@@ -189,12 +245,102 @@ onMounted(() => {
 	}
 })
 
-function onFileChange(event: Event) {
+async function onFileChange(event: Event) {
 	const input = event.target as HTMLInputElement
 	const file = input.files?.[0]
 	if (!file) return
-	selectedFile.value = file
-	previewImageUrl.value = URL.createObjectURL(file)
+	if (file.size > MAX_UPLOAD_SIZE) {
+		error.value = '画像が大きすぎます(10MB以下にしてください)'
+		input.value = ''
+		return
+	}
+	error.value = ''
+	const url = URL.createObjectURL(file)
+	try {
+		await loadImage(url)
+	}
+	catch {
+		error.value = 'この画像形式には対応していません'
+		URL.revokeObjectURL(url)
+		input.value = ''
+		return
+	}
+	processedBlob.value = null
+	cropPreviewUrl.value = url
+	cropStage.value = true
+	await nextTick()
+	initCropper()
+}
+function loadImage(src: string): Promise<HTMLImageElement> {
+	return new Promise((resolve, reject) => {
+		const img = new Image()
+		img.onload = () => resolve(img)
+		img.onerror = () => reject(new Error('decode failed'))
+		img.src = src
+	})
+}
+
+function initCropper() {
+	if (!cropImg.value) return
+	cropper = new Cropper(cropImg.value, {
+		aspectRatio: 1,
+		autoCropArea: 1,
+		viewMode: 1,
+		guides: true,
+		background: true,
+		responsive: true,
+		dragMode: 'move',
+		cropBoxMovable: false,
+		cropBoxResizable: false,
+	})
+}
+
+function destroyCropper() {
+	if (cropper) {
+		cropper.destroy()
+		cropper = null
+	}
+}
+
+async function confirmCrop() {
+	if (!cropper) return
+	processing.value = true
+	try {
+		const imageData = cropper.getImageData()
+		const box = cropper.getCropBoxData()
+		const naturalCropSize = Math.round(box.width * imageData.naturalWidth / imageData.width)
+		const size = Math.min(IMAGE_MAX_SIZE, Math.max(1, naturalCropSize))
+		const canvas = cropper.getCroppedCanvas({
+			width: size,
+			height: size,
+			imageSmoothingQuality: 'high',
+		})
+		processedBlob.value = await processMenuImage(canvas)
+		previewImageUrl.value = URL.createObjectURL(processedBlob.value)
+		closeCrop()
+	}
+	catch (e) {
+		error.value = e instanceof Error ? e.message : '画像の処理に失敗しました'
+	}
+	finally {
+		processing.value = false
+	}
+}
+
+function cancelCrop() {
+	closeCrop()
+	processedBlob.value = null
+	previewImageUrl.value = props.menu?.imageUrl ?? ''
+	error.value = ''
+}
+
+function closeCrop() {
+	cropStage.value = false
+	if (cropPreviewUrl.value) {
+		URL.revokeObjectURL(cropPreviewUrl.value)
+		cropPreviewUrl.value = ''
+	}
+	destroyCropper()
 }
 
 async function submit() {
@@ -216,8 +362,8 @@ async function submit() {
 			if (priceChanged) {
 				data.version = props.menu.version + 1
 			}
-			if (selectedFile.value) {
-				const uploaded = await uploadMenuImage(props.shopId, props.menu.id, selectedFile.value)
+			if (processedBlob.value) {
+				const uploaded = await uploadMenuImage(props.shopId, props.menu.id, processedBlob.value)
 				data.imageUrl = uploaded.imageUrl
 				data.storagePath = uploaded.storagePath
 				data.imageUpdatedAt = uploaded.imageUpdatedAt
@@ -237,8 +383,8 @@ async function submit() {
 				isVisible: form.isVisible,
 				soldOut: form.soldOut,
 			})
-			if (selectedFile.value) {
-				const uploaded = await uploadMenuImage(props.shopId, menuId, selectedFile.value)
+			if (processedBlob.value) {
+				const uploaded = await uploadMenuImage(props.shopId, menuId, processedBlob.value)
 				await updateMenu(props.shopId, menuId, {
 					imageUrl: uploaded.imageUrl,
 					storagePath: uploaded.storagePath,
@@ -258,6 +404,10 @@ async function submit() {
 }
 
 function close() {
+	destroyCropper()
+	if (previewImageUrl.value.startsWith('blob:')) {
+		URL.revokeObjectURL(previewImageUrl.value)
+	}
 	emit('close')
 }
 </script>
