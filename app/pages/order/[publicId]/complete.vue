@@ -33,18 +33,18 @@
 			</div>
 
 			<div
-				v-if="order"
+				v-if="orderItems.length > 0"
 				class="mt-6 text-left bg-gray-50 rounded-lg p-4"
 			>
 				<p class="text-sm font-medium text-gray-700 mb-2">
 					現在のステータス
 				</p>
 				<span class="inline-block text-sm bg-blue-50 text-blue-700 rounded-full px-3 py-1">
-					{{ ORDER_STATUS_LABELS[order.status] }}
+					{{ ORDER_STATUS_LABELS[OrderStatus.RECEIVED] }}
 				</span>
 				<ul class="mt-3 space-y-1 text-sm text-gray-700">
 					<li
-						v-for="item in order.items"
+						v-for="item in orderItems"
 						:key="item.menuId"
 					>
 						{{ item.name }} × {{ item.qty }}
@@ -76,35 +76,28 @@
 </template>
 
 <script setup lang="ts">
-import type { Order } from '~/types'
-import { ORDER_STATUS_LABELS } from '~/types'
+import { OrderStatus, ORDER_STATUS_LABELS } from '~/types'
 import { formatPrice } from '~/utils/format'
 import { useCartStore } from '~/stores/cart'
 
 const route = useRoute()
 const publicId = String(route.params.publicId)
 
-const { getOrder } = useOrders()
 const cart = useCartStore()
 
-const order = ref<Order | null>(null)
-
+const orderItems = computed(() => cart.lastOrderItems)
 const orderTotal = computed(() =>
-	order.value
-		? order.value.items.reduce((sum, i) => sum + i.price * i.qty, 0)
-		: 0,
+	orderItems.value.reduce((sum, i) => sum + i.price * i.qty, 0),
 )
 
-onMounted(async () => {
+onMounted(() => {
 	cart.load()
-	if (cart.shopId && cart.lastOrderId) {
-		order.value = await getOrder(cart.shopId, cart.lastOrderId).catch(() => null)
-	}
 })
 
 function addMore() {
 	cart.lastOrderId = null
 	cart.lastOrderNo = null
+	cart.lastOrderItems = []
 	navigateTo(`/order/${publicId}`)
 }
 </script>

@@ -115,7 +115,7 @@ async function submitOrder() {
 	try {
 		if (!cart.shopId) throw new Error('店舗情報が見つかりません')
 		const { orderId, orderNo } = await createOrder(cart.shopId, cart.items)
-		cart.completeOrder(orderId, orderNo)
+		cart.completeOrder(orderId, orderNo, cart.items)
 		navigateTo(`/order/${publicId}/complete`)
 	}
 	catch (e) {

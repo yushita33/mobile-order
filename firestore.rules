@@ -38,8 +38,20 @@ service cloud.firestore {
         allow create, update, delete: if isOwner();
       }
 
+      // 注文番号カウンタ: 未ログインの注文でも安全に増分できるよう専用ドキュメントへ分離
+      match /counters/orders {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasOnly(['lastOrderNo', 'updatedAt'])
+          && request.resource.data.lastOrderNo is int
+          && request.resource.data.lastOrderNo == 1;
+        allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastOrderNo', 'updatedAt'])
+          && request.resource.data.lastOrderNo == resource.data.lastOrderNo + 1;
+        allow delete: if false;
+      }
+
       match /orders/{orderId} {
-        // 注文は誰でも作成可（QR注文・未ログイン想定）だが、内容を厳格に検証
+        // 注文は誰でも作成可（QR注文・未ログイン想定）。基本形のみ検証し、
+        // アイテム個別の詳細検証は Cloud Functions 側で担保する
         allow create: if
           request.resource.data.keys().hasOnly(['tableId', 'orderNo', 'status', 'items', 'createdAt', 'updatedAt'])
           && request.resource.data.tableId is string
@@ -49,17 +61,7 @@ service cloud.firestore {
           && request.resource.data.status == 'received'
           && request.resource.data.items is list
           && request.resource.data.items.size() >= 1
-          && request.resource.data.items.size() <= 20
-          && request.resource.data.items.all(item,
-            item.menuId is string
-            && item.name is string
-            && item.price is int
-            && item.price > 0
-            && item.qty is int
-            && item.qty >= 1
-            && item.qty <= 99
-            && item.menuVersion is int
-            && item.menuVersion > 0);
+          && request.resource.data.items.size() <= 20;
         // 読み取り・ステータス更新はオーナーのみ
         allow read, update: if isOwner();
         allow delete: if false;
