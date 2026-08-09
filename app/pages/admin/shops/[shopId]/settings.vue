@@ -45,24 +45,27 @@
 					/>
 				</label>
 
-				<label class="block mb-4">
+				<div class="mb-4">
 					<span class="text-sm font-medium text-gray-700">注文URL</span>
 					<div class="mt-1 flex items-center gap-2">
 						<input
-							:value="shop ? `/order/${shop.publicId}` : ''"
+							:value="orderUrl"
 							type="text"
 							readonly
 							class="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
 						>
 						<button
 							type="button"
-							class="text-sm text-blue-600 hover:text-blue-800"
+							class="text-sm text-blue-600 hover:text-blue-800 whitespace-nowrap"
 							@click="copyOrderUrl"
 						>
-							コピー
+							{{ copied ? 'コピーしました' : 'コピー' }}
 						</button>
 					</div>
-				</label>
+					<div class="mt-4 flex justify-center bg-white border border-gray-200 rounded-lg p-4">
+						<QrCode :value="orderUrl" />
+					</div>
+				</div>
 
 				<button
 					type="submit"
@@ -147,6 +150,11 @@ const shopId = String(route.params.shopId)
 const { getShopById, updateShop, getSettings, updateSettings } = useShops()
 
 const shop = ref<Shop | null>(null)
+
+const orderUrl = computed(() =>
+	shop.value ? `${window.location.origin}/order/${shop.value.publicId}` : '',
+)
+
 const shopForm = reactive({ name: '', description: '' })
 const settingsForm = reactive({
 	isOpen: true,
@@ -157,6 +165,7 @@ const settingsForm = reactive({
 const saving = ref(false)
 const error = ref('')
 const success = ref(false)
+const copied = ref(false)
 
 onMounted(async () => {
 	try {
@@ -217,11 +226,13 @@ async function saveSettings() {
 }
 
 async function copyOrderUrl() {
-	if (!shop.value) return
-	const url = `${window.location.origin}/order/${shop.value.publicId}`
+	if (!orderUrl.value) return
 	try {
-		await navigator.clipboard.writeText(url)
-		success.value = true
+		await navigator.clipboard.writeText(orderUrl.value)
+		copied.value = true
+		setTimeout(() => {
+			copied.value = false
+		}, 2000)
 	}
 	catch {
 		error.value = 'コピーに失敗しました'
