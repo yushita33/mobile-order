@@ -16,21 +16,73 @@
 				メニューグループ
 			</h2>
 
-			<ul class="space-y-2 mb-4">
+			<VueDraggable
+				v-model="groups"
+				tag="ul"
+				:animation="150"
+				handle=".drag-handle"
+				ghost-class="opacity-40"
+				:touch-start-threshold="5"
+				:delay="150"
+				:delay-on-touch-only="true"
+				class="space-y-2 mb-4"
+				@start="onGroupStart"
+				@end="onGroupEnd"
+			>
 				<li
 					v-for="group in groups"
 					:key="group.id"
 					class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-gray-200 rounded-lg px-3 py-2"
 				>
-					<div class="flex items-center gap-3 min-w-0 flex-1">
+					<div class="flex items-center gap-2 min-w-0 flex-1">
+						<button
+							type="button"
+							class="drag-handle flex-shrink-0 p-1 text-gray-400 rounded cursor-grab active:cursor-grabbing touch-none"
+							aria-label="並べ替え"
+						>
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 16 16"
+								fill="currentColor"
+							>
+								<circle
+									cx="5"
+									cy="4"
+									r="1.5"
+								/>
+								<circle
+									cx="11"
+									cy="4"
+									r="1.5"
+								/>
+								<circle
+									cx="5"
+									cy="8"
+									r="1.5"
+								/>
+								<circle
+									cx="11"
+									cy="8"
+									r="1.5"
+								/>
+								<circle
+									cx="5"
+									cy="12"
+									r="1.5"
+								/>
+								<circle
+									cx="11"
+									cy="12"
+									r="1.5"
+								/>
+							</svg>
+						</button>
 						<input
 							v-model="group.name"
 							class="text-sm border border-transparent focus:border-gray-300 focus:outline-none rounded px-1 py-0.5 min-w-0 flex-1"
 							@change="saveGroup(group)"
 						>
-						<span class="text-xs text-gray-400 whitespace-nowrap">
-							表示順: {{ group.sortOrder }}
-						</span>
 					</div>
 					<button
 						class="text-xs text-red-600 hover:text-red-800 whitespace-nowrap"
@@ -39,7 +91,7 @@
 						削除
 					</button>
 				</li>
-			</ul>
+			</VueDraggable>
 
 			<form
 				class="flex gap-2"
@@ -83,46 +135,104 @@
 		</div>
 
 		<div
-			v-for="group in groupsWithAll"
+			v-for="group in groups"
 			:key="group.id"
 			class="mb-6"
 		>
 			<h3 class="font-bold text-gray-700 mb-3 border-b border-gray-200 pb-2">
 				{{ group.name }}
 			</h3>
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			<VueDraggable
+				:model-value="getMenuList(group.id)"
+				:disabled="reorderingMenuGroupId !== null"
+				:animation="150"
+				handle=".drag-handle"
+				ghost-class="opacity-40"
+				:touch-start-threshold="5"
+				:delay="150"
+				:delay-on-touch-only="true"
+				class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+				@update:model-value="(value: Menu[]) => onMenuUpdate(group.id, value)"
+				@start="() => onMenuStart(group.id)"
+				@end="() => onMenuEnd(group.id)"
+			>
 				<div
-					v-for="menu in group.menus"
+					v-for="menu in getMenuList(group.id)"
 					:key="menu.id"
 					class="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
 				>
-					<div class="flex gap-3">
-						<img
-							v-if="menu.imageUrl"
-							:src="menu.imageUrl + (menu.imageUpdatedAt ? `?v=${menu.imageUpdatedAt}` : '')"
-							:alt="menu.name"
-							class="w-20 h-20 object-cover rounded-lg"
-						>
-						<div
-							v-else
-							class="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs"
-						>
-							画像なし
-						</div>
-						<div class="flex-1">
-							<p class="font-medium text-gray-800 text-sm">
-								{{ menu.name }}
-							</p>
-							<p class="text-gray-600 text-sm">
-								{{ formatPrice(menu.price) }}
-							</p>
-							<p
-								v-if="menu.description"
-								class="text-gray-400 text-xs mt-1 line-clamp-2"
+					<div class="flex items-start justify-between gap-2">
+						<div class="flex gap-3 min-w-0 flex-1">
+							<img
+								v-if="menu.imageUrl"
+								:src="menu.imageUrl + (menu.imageUpdatedAt ? `?v=${menu.imageUpdatedAt}` : '')"
+								:alt="menu.name"
+								class="w-20 h-20 object-cover rounded-lg flex-shrink-0"
 							>
-								{{ menu.description }}
-							</p>
+							<div
+								v-else
+								class="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs flex-shrink-0"
+							>
+								画像なし
+							</div>
+							<div class="flex-1 min-w-0">
+								<p class="font-medium text-gray-800 text-sm">
+									{{ menu.name }}
+								</p>
+								<p class="text-gray-600 text-sm">
+									{{ formatPrice(menu.price) }}
+								</p>
+								<p
+									v-if="menu.description"
+									class="text-gray-400 text-xs mt-1 line-clamp-2"
+								>
+									{{ menu.description }}
+								</p>
+							</div>
 						</div>
+						<button
+							type="button"
+							class="drag-handle flex-shrink-0 p-1 text-gray-400 rounded cursor-grab active:cursor-grabbing touch-none"
+							aria-label="並べ替え"
+						>
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 16 16"
+								fill="currentColor"
+							>
+								<circle
+									cx="5"
+									cy="4"
+									r="1.5"
+								/>
+								<circle
+									cx="11"
+									cy="4"
+									r="1.5"
+								/>
+								<circle
+									cx="5"
+									cy="8"
+									r="1.5"
+								/>
+								<circle
+									cx="11"
+									cy="8"
+									r="1.5"
+								/>
+								<circle
+									cx="5"
+									cy="12"
+									r="1.5"
+								/>
+								<circle
+									cx="11"
+									cy="12"
+									r="1.5"
+								/>
+							</svg>
+						</button>
 					</div>
 
 					<div class="flex flex-wrap items-center justify-between gap-2 mt-3 border-t border-gray-100 pt-3">
@@ -162,7 +272,7 @@
 						</div>
 					</div>
 				</div>
-			</div>
+			</VueDraggable>
 		</div>
 
 		<AdminMenuFormModal
@@ -170,15 +280,19 @@
 			:menu="editingMenu"
 			:groups="groups"
 			:shop-id="shopId"
+			:default-sort-order="defaultSortOrder"
 			@close="closeModal"
 			@saved="loadAll"
+			@selected-group-change="onGroupChange"
 		/>
 	</div>
 </template>
 
 <script setup lang="ts">
+import { VueDraggable } from 'vue-draggable-plus'
 import type { Menu, MenuGroup } from '~/types'
 import { formatPrice } from '~/utils/format'
+import { createSortOrder } from '~/utils/sortOrder'
 
 definePageMeta({
 	middleware: 'auth',
@@ -188,24 +302,59 @@ definePageMeta({
 const route = useRoute()
 const shopId = String(route.params.shopId)
 
-const { getMenuGroups, addMenuGroup, updateMenuGroup, deleteMenuGroup, getMenus, updateMenu, deleteMenu } = useMenus()
+const { getMenuGroups, addMenuGroup, updateMenuGroup, deleteMenuGroup, getMenus, updateMenu, deleteMenu, reorderMenuGroups, reorderMenus } = useMenus()
 const { deleteMenuImage } = useMenuImage()
 
 const groups = ref<MenuGroup[]>([])
+// menus はFirestoreから取得した全メニューのマスター配列
 const menus = ref<Menu[]>([])
+// menuLists はドラッグ操作用のグループ別配列
+const menuLists = reactive<Record<string, Menu[]>>({})
 const newGroupName = ref('')
 const error = ref('')
 const showModal = ref(false)
 const editingMenu = ref<Menu | null>(null)
+const modalGroupId = ref('')
 
-const groupsWithAll = computed(() => {
-	return groups.value.map(group => ({
-		...group,
-		menus: menus.value
-			.filter(m => m.menuGroupId === group.id)
-			.sort((a, b) => a.sortOrder - b.sortOrder),
-	}))
+// 並べ替え保存中の再入を防ぐため、保存中のメニューグループIDを保持する
+const reorderingMenuGroupId = ref<string | null>(null)
+
+function getMenuList(groupId: string): Menu[] {
+	return menuLists[groupId] ?? []
+}
+
+function syncMenuLists() {
+	const groupIds = new Set(groups.value.map(group => group.id))
+	for (const group of groups.value) {
+		menuLists[group.id] = menus.value
+			.filter(menu => menu.menuGroupId === group.id)
+			.sort((a, b) => a.sortOrder - b.sortOrder)
+	}
+	for (const key of Object.keys(menuLists)) {
+		if (!groupIds.has(key)) {
+			Reflect.deleteProperty(menuLists, key)
+		}
+	}
+}
+
+function onMenuUpdate(groupId: string, value: Menu[]) {
+	if (
+		reorderingMenuGroupId.value !== null
+		&& reorderingMenuGroupId.value !== groupId
+	) {
+		return
+	}
+	menuLists[groupId] = value
+}
+
+const defaultSortOrder = computed(() => {
+	const groupMenus = menus.value.filter(menu => menu.menuGroupId === modalGroupId.value)
+	const max = groupMenus.reduce((m, menu) => Math.max(m, menu.sortOrder ?? 0), 0)
+	return max + 10
 })
+
+let groupsBackup: MenuGroup[] = []
+let menuSortBackup = new Map<string, number>()
 
 onMounted(loadAll)
 
@@ -214,6 +363,7 @@ async function loadAll() {
 		const [g, m] = await Promise.all([getMenuGroups(shopId), getMenus(shopId)])
 		groups.value = g
 		menus.value = m
+		syncMenuLists()
 	}
 	catch (e) {
 		error.value = e instanceof Error ? e.message : '読み込みに失敗しました'
@@ -254,9 +404,66 @@ async function removeGroup(group: MenuGroup) {
 	}
 }
 
+function onGroupStart() {
+	groupsBackup = groups.value.map(group => ({ ...group }))
+}
+
+async function onGroupEnd() {
+	try {
+		await reorderMenuGroups(shopId, groups.value)
+		groups.value.forEach((group, i) => {
+			group.sortOrder = createSortOrder(i)
+		})
+	}
+	catch (e) {
+		groups.value = groupsBackup
+		error.value = e instanceof Error ? e.message : '並べ替えの保存に失敗しました'
+	}
+}
+
+function onMenuStart(groupId: string) {
+	if (reorderingMenuGroupId.value) return
+	menuSortBackup = new Map()
+	for (const menu of menus.value) {
+		if (menu.menuGroupId === groupId) {
+			menuSortBackup.set(menu.id, menu.sortOrder)
+		}
+	}
+}
+
+async function onMenuEnd(groupId: string) {
+	if (reorderingMenuGroupId.value) return
+	reorderingMenuGroupId.value = groupId
+	const ordered = getMenuList(groupId)
+	try {
+		await reorderMenus(shopId, ordered)
+		ordered.forEach((menu, i) => {
+			menu.sortOrder = createSortOrder(i)
+		})
+	}
+	catch (e) {
+		for (const menu of menus.value) {
+			const backup = menuSortBackup.get(menu.id)
+			if (backup !== undefined) {
+				menu.sortOrder = backup
+			}
+		}
+		syncMenuLists()
+		error.value = e instanceof Error ? e.message : '並べ替えの保存に失敗しました'
+	}
+	finally {
+		reorderingMenuGroupId.value = null
+	}
+}
+
 function openModal(menu: Menu | null) {
 	editingMenu.value = menu
+	modalGroupId.value = menu?.menuGroupId ?? ''
 	showModal.value = true
+}
+
+function onGroupChange(groupId: string) {
+	modalGroupId.value = groupId
 }
 
 function closeModal() {

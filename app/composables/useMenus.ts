@@ -8,8 +8,10 @@ import {
 	query,
 	where,
 	orderBy,
+	writeBatch,
 } from 'firebase/firestore'
 import type { Menu, MenuGroup } from '~/types'
+import { createSortOrder } from '~/utils/sortOrder'
 
 export function useMenus() {
 	const db = useDb()
@@ -87,6 +89,32 @@ export function useMenus() {
 		await deleteDoc(doc(db, 'shops', shopId, 'menus', menuId))
 	}
 
+	// sortOrder は表示順を表すため10刻みで管理する（同値回避と可読性のため）
+	async function reorderMenuGroups(shopId: string, ordered: MenuGroup[]) {
+		if (ordered.length === 0) return
+		const batch = writeBatch(db)
+		ordered.forEach((group, i) => {
+			batch.update(
+				doc(db, 'shops', shopId, 'menuGroups', group.id),
+				{ sortOrder: createSortOrder(i) },
+			)
+		})
+		await batch.commit()
+	}
+
+	// 渡された ordered 配列は同一メニューグループ内の並び順のみを受け取る（グループをまたぐ並べ替えはしない）
+	async function reorderMenus(shopId: string, ordered: Menu[]) {
+		if (ordered.length === 0) return
+		const batch = writeBatch(db)
+		ordered.forEach((menu, i) => {
+			batch.update(
+				doc(db, 'shops', shopId, 'menus', menu.id),
+				{ sortOrder: createSortOrder(i) },
+			)
+		})
+		await batch.commit()
+	}
+
 	return {
 		getMenuGroups,
 		addMenuGroup,
@@ -97,5 +125,7 @@ export function useMenus() {
 		addMenu,
 		updateMenu,
 		deleteMenu,
+		reorderMenuGroups,
+		reorderMenus,
 	}
 }
