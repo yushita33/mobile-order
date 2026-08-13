@@ -30,28 +30,17 @@
 					>
 				</label>
 
-				<div class="grid grid-cols-2 gap-4">
-					<label class="block">
-						<span class="text-sm font-medium text-gray-700">価格（円）*</span>
-						<input
-							v-model.number="form.price"
-							type="number"
-							min="0"
-							step="1"
-							required
-							class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-						>
-					</label>
-					<label class="block">
-						<span class="text-sm font-medium text-gray-700">表示順</span>
-						<input
-							v-model.number="form.sortOrder"
-							type="number"
-							step="10"
-							class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-						>
-					</label>
-				</div>
+				<label class="block">
+					<span class="text-sm font-medium text-gray-700">価格（円）*</span>
+					<input
+						v-model.number="form.price"
+						type="number"
+						min="0"
+						step="1"
+						required
+						class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+					>
+				</label>
 
 				<label class="block">
 					<span class="text-sm font-medium text-gray-700">メニューグループ</span>
@@ -187,11 +176,13 @@ const props = defineProps<{
 	menu: Menu | null
 	groups: MenuGroup[]
 	shopId: string
+	defaultSortOrder: number
 }>()
 
 const emit = defineEmits<{
-	close: []
-	saved: []
+	'close': []
+	'saved': []
+	'selected-group-change': [groupId: string]
 }>()
 
 const { addMenu, updateMenu } = useMenus()
@@ -204,7 +195,6 @@ const isEdit = computed(() => props.menu !== null)
 const form = reactive({
 	name: '',
 	price: 1,
-	sortOrder: 10,
 	menuGroupId: '',
 	description: '',
 	isVisible: true,
@@ -236,13 +226,16 @@ onMounted(() => {
 	if (props.menu) {
 		form.name = props.menu.name
 		form.price = props.menu.price
-		form.sortOrder = props.menu.sortOrder
 		form.menuGroupId = props.menu.menuGroupId ?? ''
 		form.description = props.menu.description ?? ''
 		form.isVisible = props.menu.isVisible
 		form.soldOut = props.menu.soldOut
 		previewImageUrl.value = props.menu.imageUrl ?? ''
 	}
+})
+
+watch(() => form.menuGroupId, (groupId) => {
+	emit('selected-group-change', groupId)
 })
 
 async function onFileChange(event: Event) {
@@ -349,14 +342,17 @@ async function submit() {
 	try {
 		const menuGroupId = form.menuGroupId || undefined
 		if (isEdit.value && props.menu) {
+			const groupChanged = props.menu.menuGroupId !== menuGroupId
 			const data: Partial<Menu> = {
 				name: form.name,
 				price: form.price,
-				sortOrder: form.sortOrder,
 				menuGroupId,
 				description: form.description,
 				isVisible: form.isVisible,
 				soldOut: form.soldOut,
+			}
+			if (groupChanged) {
+				data.sortOrder = props.defaultSortOrder
 			}
 			const priceChanged = form.price !== props.menu.price
 			if (priceChanged) {
@@ -377,7 +373,7 @@ async function submit() {
 			const menuId = await addMenu(props.shopId, {
 				name: form.name,
 				price: form.price,
-				sortOrder: form.sortOrder,
+				sortOrder: props.defaultSortOrder,
 				menuGroupId,
 				description: form.description,
 				isVisible: form.isVisible,

@@ -65,6 +65,7 @@ export interface ShopSettings {
 export interface MenuGroup {
 	id: string
 	name: string
+	// メニューグループ内での表示順（10刻み）
 	sortOrder: number
 }
 
@@ -79,6 +80,7 @@ export interface Menu {
 	imageUpdatedAt?: number
 	isVisible: boolean
 	soldOut: boolean
+	// メニューグループ内での表示順（10刻み）
 	sortOrder: number
 	version: number
 }
