@@ -4,24 +4,32 @@
 			v-if="shop"
 			class="py-6"
 		>
-			<div class="flex items-center gap-3 mb-4">
-				<img
-					v-if="shop.logoUrl"
-					:src="shop.logoUrl"
-					alt="logo"
-					class="w-12 h-12 rounded-full object-cover"
-				>
-				<div>
-					<h1 class="text-2xl font-bold text-gray-800">
-						{{ shop.name }}
-					</h1>
-					<p
-						v-if="shop.description"
-						class="text-sm text-gray-500"
+			<div class="flex items-center justify-between gap-3 mb-4">
+				<div class="flex items-center gap-3 min-w-0">
+					<img
+						v-if="shop.logoUrl"
+						:src="shop.logoUrl"
+						alt="logo"
+						class="w-12 h-12 rounded-full object-cover flex-shrink-0"
 					>
-						{{ shop.description }}
-					</p>
+					<div class="min-w-0">
+						<h1 class="text-2xl font-bold text-gray-800">
+							{{ shop.name }}
+						</h1>
+						<p
+							v-if="shop.description"
+							class="text-sm text-gray-500"
+						>
+							{{ shop.description }}
+						</p>
+					</div>
 				</div>
+				<NuxtLink
+					:to="`/order/${route.params.publicId}/history`"
+					class="flex-shrink-0 text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
+				>
+					注文履歴
+				</NuxtLink>
 			</div>
 
 			<div
@@ -114,7 +122,7 @@
 		</div>
 
 		<div
-			v-if="cart.count > 0 && shop && canOrder"
+			v-if="cart.items.length > 0 && shop && canOrder"
 			class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-lg"
 		>
 			<button
@@ -139,6 +147,7 @@ const publicId = String(route.params.publicId)
 
 const { getShopByPublicId, getSettings } = useShops()
 const { getMenuGroups, getMenus } = useMenus()
+const { ensureGuestUid } = useCustomer()
 
 const cart = useCartStore()
 
@@ -162,6 +171,14 @@ const groupsWithMenus = computed(() => {
 
 onMounted(async () => {
 	cart.load()
+	// 注文・履歴を利用できるよう、先に認証（匿名）を済ませておく。
+	// 認証に失敗してもメニュー閲覧は継続する（注文確定時にカート画面で再認証される）
+	try {
+		await ensureGuestUid()
+	}
+	catch {
+		// メニュー閲覧は継続
+	}
 	try {
 		const s = await getShopByPublicId(publicId)
 		if (!s) {
@@ -169,7 +186,12 @@ onMounted(async () => {
 			return
 		}
 		shop.value = s
-		cart.initShop(s.id)
+		if (s.currentSessionId) {
+			cart.syncSession(s.id, s.currentSessionId)
+		}
+		else {
+			cart.initShop(s.id)
+		}
 		const [st, g, m] = await Promise.all([
 			getSettings(s.id),
 			getMenuGroups(s.id),

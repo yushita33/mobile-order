@@ -7,6 +7,7 @@ const STORAGE_KEY = 'mobile-order-cart'
 
 export const useCartStore = defineStore('cart', () => {
 	const shopId = ref<string | null>(null)
+	const sessionId = ref<string | null>(null)
 	const items = ref<CartItem[]>([])
 	const lastOrderId = ref<string | null>(null)
 	const lastOrderNo = ref<number | null>(null)
@@ -19,6 +20,7 @@ export const useCartStore = defineStore('cart', () => {
 			if (!raw) return
 			const data = JSON.parse(raw)
 			shopId.value = data.shopId ?? null
+			sessionId.value = data.sessionId ?? null
 			items.value = data.items ?? []
 			lastOrderId.value = data.lastOrderId ?? null
 			lastOrderNo.value = data.lastOrderNo ?? null
@@ -35,6 +37,7 @@ export const useCartStore = defineStore('cart', () => {
 			STORAGE_KEY,
 			JSON.stringify({
 				shopId: shopId.value,
+				sessionId: sessionId.value,
 				items: items.value,
 				lastOrderId: lastOrderId.value,
 				lastOrderNo: lastOrderNo.value,
@@ -46,11 +49,40 @@ export const useCartStore = defineStore('cart', () => {
 	function initShop(id: string) {
 		if (shopId.value !== id) {
 			shopId.value = id
+			sessionId.value = null
 			items.value = []
 			lastOrderId.value = null
 			lastOrderNo.value = null
 			lastOrderItems.value = []
 		}
+	}
+
+	function setSession(id: string) {
+		if (sessionId.value !== id) {
+			sessionId.value = id
+			save()
+		}
+	}
+
+	// 店舗が違う場合は店舗情報・カート・セッションを完全初期化し、
+	// 同一店舗でセッションが変わった場合は（会計済みなので）古いカートをクリアして最新セッションに切り替える
+	function syncSession(id: string, currentSessionId: string) {
+		if (shopId.value !== id) {
+			initShop(id)
+		}
+		if (sessionId.value !== currentSessionId) {
+			sessionId.value = currentSessionId
+			items.value = []
+			save()
+		}
+	}
+
+	// おかわり候補として qty=0 で追加する。既にカートにある商品は数量を維持する
+	function addRefillItem(item: CartItem) {
+		const existing = items.value.find(i => i.menuId === item.menuId)
+		if (existing) return
+		items.value.push({ ...item, qty: 0 })
+		save()
 	}
 
 	function addItem(item: CartItem) {
@@ -78,6 +110,7 @@ export const useCartStore = defineStore('cart', () => {
 
 	function clear() {
 		shopId.value = null
+		sessionId.value = null
 		items.value = []
 		lastOrderId.value = null
 		lastOrderNo.value = null
@@ -102,6 +135,7 @@ export const useCartStore = defineStore('cart', () => {
 
 	return {
 		shopId,
+		sessionId,
 		items,
 		lastOrderId,
 		lastOrderNo,
@@ -110,7 +144,10 @@ export const useCartStore = defineStore('cart', () => {
 		total,
 		load,
 		initShop,
+		setSession,
+		syncSession,
 		addItem,
+		addRefillItem,
 		updateQty,
 		removeItem,
 		clear,

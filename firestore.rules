@@ -15,6 +15,38 @@ service cloud.firestore {
             == get(/databases/$(database)/documents/shops/$(shopId)).data.ownerUid;
       }
 
+      function shopPath() {
+        return /databases/$(database)/documents/shops/$(shopId)
+      }
+
+      function orderPath(orderId) {
+        return /databases/$(database)/documents/shops/$(shopId)/orders/$(orderId)
+      }
+
+      function counterPath() {
+        return /databases/$(database)/documents/shops/$(shopId)/counters/activeOrders
+      }
+
+      // アクティブ注文カウンタのバッチ適用前の値（未作成なら0扱い）
+      function counterCountBefore() {
+        return exists(counterPath()) ? get(counterPath()).data.activeOrderCount : 0
+      }
+
+      // 指定の注文がこのバッチで「新規に作成された」受付済み・現在セッションの注文かを検証する。
+      // exists()（適用前）と existsAfter()（適用後）を組み合わせることで、
+      // 「既存注文を参照してカウンタを増やす」使い回しを拒否できる。
+      function createdActiveOrder(orderId) {
+        return !exists(orderPath(orderId))
+          && existsAfter(orderPath(orderId))
+          && getAfter(orderPath(orderId)).data.status == 'received'
+          && getAfter(orderPath(orderId)).data.sessionId == get(shopPath()).data.currentSessionId
+      }
+
+      // 指定の注文がこのバッチで提供済み/キャンセルに変わる注文かを判定する
+      function inactivatedOrder(orderId) {
+        return getAfter(orderPath(orderId)).data.status in ['completed', 'cancelled']
+      }
+
       // 店舗情報は公開読み取り（注文画面用）、書き込みはオーナーのみ
       allow read: if true;
       allow create: if request.auth != null
@@ -49,11 +81,61 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // アクティブ注文カウンタ: 現在セッションの未提供（受付済み/調理中）注文数。
+      // 会計（セッション切替）はこのカウンタが0のときのみ許可され、トランザクション内で検証する。
+      // このカウンタは「注文・ステータス変更という実在の事実と同一バッチで」しか変更できない。
+      // - 注文作成（客）: 同一バッチで新規の受付済み注文と +1
+      // - 提供済み/キャンセル（オーナー）: 同一バッチのステータス変更と -1
+      // - 強制終了（オーナー）: 削除（=0扱い）
+      match /counters/activeOrders {
+        allow read: if true;
+        allow create: if request.auth != null
+          && request.resource.data.keys().hasOnly(['activeOrderCount', 'orderId', 'updatedAt'])
+          && request.resource.data.activeOrderCount is int
+          && request.resource.data.activeOrderCount == 1
+          && request.resource.data.orderId is string
+          && createdActiveOrder(request.resource.data.orderId);
+        allow update: if request.auth != null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeOrderCount', 'orderId', 'updatedAt'])
+          && request.resource.data.activeOrderCount is int
+          && request.resource.data.activeOrderCount >= 0
+          && request.resource.data.orderId is string
+          && (
+            // 注文作成 +1（新規注文との同一バッチペア）
+            (request.resource.data.activeOrderCount == resource.data.activeOrderCount + 1
+              && createdActiveOrder(request.resource.data.orderId))
+            // 提供済み/キャンセル -1（オーナー、ステータス変更との同一バッチペア）
+            || (isOwner()
+              && request.resource.data.activeOrderCount == resource.data.activeOrderCount - 1
+              && existsAfter(orderPath(request.resource.data.orderId))
+              && inactivatedOrder(request.resource.data.orderId))
+          );
+        allow delete: if isOwner();
+      }
+
       match /orders/{orderId} {
-        // 注文は誰でも作成可（QR注文・未ログイン想定）。基本形のみ検証し、
-        // アイテム個別の詳細検証は Cloud Functions 側で担保する
-        allow create: if
-          request.resource.data.keys().hasOnly(['tableId', 'orderNo', 'status', 'items', 'createdAt', 'updatedAt'])
+        // 注文が現在のテーブルセッション（店舗文書の currentSessionId）に属するかを検証する。
+        // クライアントから指定された sessionId は一切信頼せず、注文文書の sessionId と店舗文書を突合する。
+        // 書き込み（create）は request.resource を、読み取りは resource を参照することに注意。
+        function isCurrentSession(doc) {
+          return get(shopPath()).data.currentSessionId == doc.data.sessionId
+        }
+
+        // 現在セッションの注文が「未提供（受付済み/調理中）→ 提供済み/キャンセル」になる更新かを判定する
+        function inactivatesCurrentSessionOrder() {
+          return (request.resource.data.status == 'completed' || request.resource.data.status == 'cancelled')
+            && (resource.data.status == 'received' || resource.data.status == 'cooking')
+            && resource.data.sessionId == get(shopPath()).data.currentSessionId
+        }
+
+        // 注文は誰でも作成可（QR注文・未ログイン想定）だが、現在のセッションにのみ作成できる。
+        // さらに、同一バッチでアクティブ注文カウンタがこの注文IDを記録して +1 されていることを要求する。
+        allow create: if request.auth != null
+          && request.resource.data.customerUid == request.auth.uid
+          && isCurrentSession(request.resource)
+          && request.resource.data.keys().hasOnly([
+            'tableId', 'orderNo', 'status', 'items', 'createdAt', 'updatedAt', 'sessionId', 'customerUid'
+          ])
           && request.resource.data.tableId is string
           && request.resource.data.tableId.size() > 0
           && request.resource.data.orderNo is int
@@ -61,9 +143,21 @@ service cloud.firestore {
           && request.resource.data.status == 'received'
           && request.resource.data.items is list
           && request.resource.data.items.size() >= 1
-          && request.resource.data.items.size() <= 20;
-        // 読み取り・ステータス更新はオーナーのみ
-        allow read, update: if isOwner();
+          && request.resource.data.items.size() <= 20
+          && existsAfter(counterPath())
+          && getAfter(counterPath()).data.orderId == orderId
+          && getAfter(counterPath()).data.activeOrderCount == counterCountBefore() + 1;
+        // 読み取りはオーナー、または現在セッションの注文（同じテーブルの客同士で共有）のみ
+        allow read: if isOwner() || (request.auth != null && isCurrentSession(resource));
+        // ステータス更新はオーナーのみ。
+        // 現在セッション注文の未提供→完了/キャンセルは、同一バッチでアクティブ注文カウンタが
+        // この注文IDを記録して -1 されることを要求する（整合性崩壊を黙認しない）。
+        // 旧セッション注文（強制終了の積み残し）や 受付→調理中 などの遷移はカウンタに触れずに行える。
+        allow update: if isOwner()
+          && (!inactivatesCurrentSessionOrder()
+            || (existsAfter(counterPath())
+              && getAfter(counterPath()).data.orderId == orderId
+              && getAfter(counterPath()).data.activeOrderCount == counterCountBefore() - 1));
         allow delete: if false;
       }
     }
