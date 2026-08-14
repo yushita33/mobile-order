@@ -51,6 +51,8 @@ export interface Shop {
 	description?: string
 	logoUrl?: string
 	lastOrderNo: number
+	// テーブルの現在の注文セッションID。会計（セッション切替）で更新される
+	currentSessionId?: string
 	createdAt: Timestamp
 	updatedAt: Timestamp
 }
@@ -96,6 +98,10 @@ export interface OrderItem {
 export interface Order {
 	id: string
 	tableId: string
+	// 会計単位の注文セッション。現在のセッション（Shop.currentSessionId）の注文のみ履歴に表示される
+	sessionId?: string
+	// 注文したブラウザの匿名UID（注文作成時の本人確認用）
+	customerUid?: string
 	orderNo: number
 	status: OrderStatus
 	items: OrderItem[]
