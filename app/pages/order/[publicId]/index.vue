@@ -75,11 +75,12 @@
 					<div
 						v-for="menu in group.menus"
 						:key="menu.id"
-						class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex gap-4"
+						class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex gap-4 cursor-pointer active:scale-[0.99] transition"
+						@click="selectedMenu = menu"
 					>
 						<img
 							v-if="menu.imageUrl"
-							:src="menu.imageUrl + (menu.imageUpdatedAt ? `?v=${menu.imageUpdatedAt}` : '')"
+							:src="getMenuImageUrl(menu)"
 							:alt="menu.name"
 							class="w-20 h-20 object-cover rounded-lg flex-shrink-0"
 						>
@@ -98,14 +99,14 @@
 							</p>
 							<p
 								v-if="menu.description"
-								class="text-gray-400 text-xs mt-1"
+								class="text-gray-400 text-xs mt-1 line-clamp-1"
 							>
 								{{ menu.description }}
 							</p>
 							<button
 								v-if="!menu.soldOut && canOrder"
 								class="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
-								@click="addToCart(menu)"
+								@click.stop="addToCart(menu)"
 							>
 								＋ カートに追加
 							</button>
@@ -134,12 +135,36 @@
 				<span class="font-bold">{{ formatPrice(cart.total) }}</span>
 			</button>
 		</div>
+
+		<Transition
+			enter-active-class="transition-opacity duration-200 ease-out"
+			enter-from-class="opacity-0"
+			enter-to-class="opacity-100"
+			leave-active-class="transition-opacity duration-300 ease-in"
+			leave-from-class="opacity-100"
+			leave-to-class="opacity-0"
+		>
+			<div
+				v-if="toastMessage"
+				class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] max-w-[calc(100%-2rem)] bg-gray-900/90 text-white text-sm rounded-full px-4 py-2 shadow-lg text-center"
+			>
+				✓ {{ toastMessage }}
+			</div>
+		</Transition>
+
+		<MenuDetailModal
+			:menu="selectedMenu"
+			:can-order="canOrder"
+			@close="selectedMenu = null"
+			@add="addMenuFromDetail"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
 import type { Menu, MenuGroup, Shop, ShopSettings } from '~/types'
 import { formatPrice } from '~/utils/format'
+import { getMenuImageUrl } from '~/utils/menuImage'
 import { useCartStore } from '~/stores/cart'
 
 const route = useRoute()
@@ -157,6 +182,10 @@ const groups = ref<MenuGroup[]>([])
 const menus = ref<Menu[]>([])
 const loading = ref(true)
 const error = ref('')
+const selectedMenu = ref<Menu | null>(null)
+
+const toastMessage = ref('')
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 const canOrder = computed(() => settings.value?.isOpen ?? false)
 
@@ -217,5 +246,32 @@ function addToCart(menu: Menu) {
 		qty: 1,
 		menuVersion: menu.version,
 	})
+	showToast(`${menu.name}をカートに追加しました`)
+}
+
+// 固定カートバーの上に短時間だけ表示する軽いフィードバック。長いメニュー名でも
+// 画面幅を超えないよう、テンプレート側で max-w で制限している
+function showToast(message: string) {
+	if (toastTimer) {
+		clearTimeout(toastTimer)
+	}
+	toastMessage.value = message
+	toastTimer = setTimeout(() => {
+		toastMessage.value = ''
+		toastTimer = null
+	}, 1500)
+}
+
+onBeforeUnmount(() => {
+	if (toastTimer) {
+		clearTimeout(toastTimer)
+	}
+})
+
+// 詳細シートから追加したらシートを閉じて一覧に戻す。
+// 既存の固定カートバーが Pinia 経由で自動更新されるため、シート側にカート情報は持たせない
+function addMenuFromDetail(menu: Menu) {
+	addToCart(menu)
+	selectedMenu.value = null
 }
 </script>
